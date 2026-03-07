@@ -1,0 +1,1177 @@
+{
+  "name": "Lead Generation Pipeline",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        0
+      ],
+      "id": "b5a74f84-1470-44e0-915f-c541cdda87ed",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -176
+      ],
+      "id": "ba09d260-fafd-4506-8706-4e87e4da616d",
+      "name": "When clicking ‘Execute workflow’"
+    },
+    {
+      "parameters": {
+        "mode": "passThrough"
+      },
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3.2,
+      "position": [
+        272,
+        -144
+      ],
+      "id": "0aadb1f5-6402-4c66-bf72-334580c388aa",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "q": "site:linkedin.com/in \"CEO\" \"tech\" \"San Francisco\"",
+        "additionalFields": {},
+        "requestOptions": {}
+      },
+      "type": "n8n-nodes-serpapi.serpApi",
+      "typeVersion": 1,
+      "position": [
+        480,
+        -144
+      ],
+      "id": "358bec0c-d1ca-4831-8253-c5e64d0c9c39",
+      "name": "Google search",
+      "credentials": {
+        "serpApi": {
+          "id": "YKALIG1LF2YhLaMx",
+          "name": "SerpApi account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Improved LinkedIn Company Extraction\nfor (let item of items) {\n  const results = item.json.organic_results;\n  const processedProfiles = [];\n  \n  for (const result of results) {\n    let name = result.title.split(' - ')[0] || result.title.split(' | ')[0] || 'Unknown';\n    name = name.replace('CEO of', '').replace('CEO at', '').replace('CEO', '').trim();\n    \n    // IMPROVED COMPANY EXTRACTION\n    let company = extractCompany(result);\n    \n    // BETTER DOMAIN EXTRACTION\n    let domain = extractDomain(result, company);\n    \n    // Only include profiles with valid companies\n    if (company && domain && !domain.includes('unknown')) {\n      processedProfiles.push({\n        name: name.trim(),\n        title: result.title,\n        linkedin_url: result.link,\n        company: company.trim(),\n        snippet: result.snippet,\n        position: result.position,\n        company_domain: domain\n      });\n    }\n  }\n  \n  item.json = {\n    search_metadata: item.json.search_metadata,\n    profiles: processedProfiles,\n    total_profiles: processedProfiles.length\n  };\n}\n\n// IMPROVED COMPANY EXTRACTION\nfunction extractCompany(result) {\n  // Method 1: Extract from title pattern \"Name - Company\"\n  if (result.title.includes(' - ')) {\n    const afterDash = result.title.split(' - ')[1];\n    if (!afterDash.includes('San Francisco') && !afterDash.includes('LinkedIn')) {\n      return afterDash.split(' |')[0].split(' at ')[0].trim();\n    }\n  }\n  \n  // Method 2: Extract from rich snippet extensions\n  if (result.rich_snippet && result.rich_snippet.top && result.rich_snippet.top.extensions) {\n    const extensions = result.rich_snippet.top.extensions;\n    for (const ext of extensions) {\n      if (ext && typeof ext === 'string' && !ext.includes('San Francisco') && !ext.includes('LinkedIn')) {\n        if (ext.length > 3 && ext.length < 50) {\n          return ext.trim();\n        }\n      }\n    }\n  }\n  \n  // Method 3: Extract from snippet \"at Company\"\n  if (result.snippet.includes(' at ')) {\n    const companyMatch = result.snippet.split(' at ')[1]?.split(' ·')[0]?.split(' .')[0];\n    if (companyMatch && companyMatch.length > 3) {\n      return companyMatch.trim();\n    }\n  }\n  \n  // Method 4: Manual mapping for known profiles\n  const knownCompanies = {\n    'Marc Benioff': 'Salesforce',\n    'Sasha Orloff': 'Puzzle', \n    'Nazar Gulyk': 'Techstars',\n    'Simon Khalaf': '', // Need to research\n    'Yamini Rangan': 'HubSpot'\n  };\n  \n  return knownCompanies[result.title.split(' - ')[0]] || '';\n}\n\n// IMPROVED DOMAIN EXTRACTION\nfunction extractDomain(result, company) {\n  // Method 1: Known company domains\n  const knownDomains = {\n    'Salesforce': 'salesforce.com',\n    'HubSpot': 'hubspot.com', \n    'Techstars': 'techstars.com',\n    'Puzzle': 'puzzle.io',\n    'Lever': 'lever.co'\n  };\n  \n  if (company && knownDomains[company]) {\n    return knownDomains[company];\n  }\n  \n  // Method 2: Convert company name to domain\n  if (company && company.length > 2) {\n    const cleanDomain = company.toLowerCase()\n      .replace(/[^a-z0-9]/g, '')\n      .replace(/\\s+/g, '')\n      .replace(/llc|inc|corp|corporation|company|co|tech|technologies|solutions/g, '');\n    \n    if (cleanDomain.length > 3) {\n      return cleanDomain + '.com';\n    }\n  }\n  \n  return ''; // Return empty instead of unknown-company.com\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        688,
+        -144
+      ],
+      "id": "d9e0e23f-554b-4739-9d48-1733a991b7ed",
+      "name": "Extract Company & Domain"
+    },
+    {
+      "parameters": {
+        "fieldToSplitOut": "profiles",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.splitOut",
+      "typeVersion": 1,
+      "position": [
+        896,
+        -144
+      ],
+      "id": "33aa808e-9fd4-4e75-8081-5afaaf32b015",
+      "name": "Split Out"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Clean and Validate Domains for Hunter.io\nfor (let item of items) {\n  // Clean up company names\n  if (item.json.company) {\n    item.json.company = item.json.company\n      .split(',')[0]  // Remove everything after comma\n      .split(' at ')[0]  // Remove everything after \"at\"\n      .split(' of ')[0]  // Remove everything after \"of\"\n      .replace(' a modern CRM company that', '')\n      .trim();\n  }\n  \n  // Fix specific problematic domains\n  if (item.json.company_domain === 'hubspotamoderncrmthat.com') {\n    item.json.company_domain = 'hubspot.com';\n  }\n  \n  const currentDomain = item.json.company_domain;\n  \n  // Known valid domains\n  const validDomains = [\n    'hubspot.com',\n    'techstars.com', \n    'salesforce.com',\n    'puzzle.io',\n    'lever.co'\n  ];\n  \n  // Known invalid domains\n  const invalidDomains = [\n    'ceoofinsfnsulting.com',\n    'itmanager.com',\n    'unknown-company.com',\n    'example.com'\n  ];\n  \n  // Validate domain\n  if (validDomains.includes(currentDomain)) {\n    item.json.domain_status = 'valid';\n  } else if (invalidDomains.includes(currentDomain)) {\n    item.json.domain_status = 'invalid';\n    item.json.skip_hunter = true;\n  } else {\n    // Check if domain looks real\n    const looksReal = currentDomain && \n                     currentDomain.includes('.') &&\n                     !currentDomain.includes('ceo') &&\n                     !currentDomain.includes('manager') &&\n                     !currentDomain.includes(' ') &&\n                     currentDomain.length > 6;\n    \n    if (looksReal) {\n      item.json.domain_status = 'unknown_but_valid';\n    } else {\n      item.json.domain_status = 'invalid';\n      item.json.skip_hunter = true;\n    }\n  }\n  \n  console.log('Domain Check:', {\n    name: item.json.name,\n    domain: item.json.company_domain,\n    status: item.json.domain_status,\n    send_to_hunter: !item.json.skip_hunter\n  });\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1104,
+        -144
+      ],
+      "id": "8272d497-fc0a-4797-821d-69e058a6c137",
+      "name": "Clean & Validate Domains"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "e509bc82-9b6b-4785-b15f-d91ed55feb6b",
+              "leftValue": "={{ $json.domain_status }}",
+              "rightValue": "valid",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        1520,
+        -144
+      ],
+      "id": "8b474d0a-88a9-42a8-a4ae-fa8fafbc7623",
+      "name": "If"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Debug: Check what's sent to Hunter.io\nfor (let item of items) {\n  console.log('SENDING TO HUNTER.IO:', {\n    domain: item.json.company_domain,\n    name: item.json.name,\n    company: item.json.company,\n    full_data: item.json\n  });\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1840,
+        -400
+      ],
+      "id": "c13355a3-08fd-43e9-806d-c40c462885ff",
+      "name": "Debug Hunter Input"
+    },
+    {
+      "parameters": {
+        "domain": "={{ $json.company_domain }}",
+        "limit": 10,
+        "filters": {}
+      },
+      "type": "n8n-nodes-base.hunter",
+      "typeVersion": 1,
+      "position": [
+        2112,
+        -400
+      ],
+      "id": "9897c942-4f3c-40f0-acfd-5f5d2af3dc1d",
+      "name": "Hunter",
+      "credentials": {
+        "hunterApi": {
+          "id": "DfprZvVA2qwTF6iQ",
+          "name": "Hunter account"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "9026a400-4dd3-439e-804a-4b6f2ca047b3",
+              "leftValue": "={{ $json.seniority }}",
+              "rightValue": "executive",
+              "operator": {
+                "type": "string",
+                "operation": "equals",
+                "name": "filter.operator.equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        2320,
+        -400
+      ],
+      "id": "5c153776-2bbb-4af0-9c3a-2bf2d1b625ca",
+      "name": "If1"
+    },
+    {
+      "parameters": {
+        "jsCode": "// Extract Real Company from Email Domain\nconst items = $input.all();\n\nfor (let item of items) {\n  const email = item.json.value || '';\n  let company = 'Unknown Company';\n  \n  // Extract company from email domain\n  if (email.includes('@salesforce.com')) {\n    company = 'Salesforce';\n  } else if (email.includes('@hubspot.com')) {\n    company = 'HubSpot';\n  } else if (email.includes('@techstars.com')) {\n    company = 'Techstars';\n  } else if (email.includes('@lever.co')) {\n    company = 'Lever';\n  } else if (email.includes('@')) {\n    // Extract domain and convert to company name\n    const domain = email.split('@')[1];\n    company = domain.split('.')[0];\n    company = company.charAt(0).toUpperCase() + company.slice(1);\n  }\n  \n  item.json.processedData = {\n    name: item.json.first_name + ' ' + item.json.last_name,\n    email: item.json.value,\n    company: company,\n    message: 'Position: ' + item.json.position + ' | Department: ' + item.json.department + ' | Source: Hunter.io'\n  };\n}\n\nreturn items;"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2528,
+        -496
+      ],
+      "id": "b1110eec-3f86-4cc4-910a-3576c402bff2",
+      "name": "Process Email Data"
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://zikyhaythem.app.n8n.cloud/webhook/lead-capture",
+        "sendHeaders": true,
+        "headerParameters": {
+          "parameters": [
+            {
+              "name": "Content-Type",
+              "value": "application/json"
+            }
+          ]
+        },
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ { name: $json.processedData.name, email: $json.processedData.email, company: $json.processedData.company, message: $json.processedData.message } }}",
+        "options": {}
+      },
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.3,
+      "position": [
+        2736,
+        -496
+      ],
+      "id": "d2c1920b-9419-4746-a68b-d0014a2f26da",
+      "name": "HTTP Request"
+    }
+  ],
+  "pinData": {
+    "Process Email Data": [
+      {
+        "json": {
+          "value": "fhamid@salesforce.com",
+          "type": "personal",
+          "confidence": 99,
+          "sources": [
+            {
+              "domain": "linkedin.com",
+              "uri": "https://www.google.com/search?q=site:linkedin.com%20fahad%20hamid%20salesforce",
+              "extracted_on": "2025-10-10",
+              "last_seen_on": "2025-10-02",
+              "still_on_page": true
+            }
+          ],
+          "first_name": "Fahad",
+          "last_name": "Hamid",
+          "position": "Global Client Director",
+          "position_raw": "Global Client Director",
+          "seniority": "executive",
+          "department": "support",
+          "linkedin": "https://www.linkedin.com/in/fahad-hamid-b6a7561",
+          "twitter": null,
+          "phone_number": null,
+          "verification": {
+            "date": "2025-10-21",
+            "status": "valid"
+          },
+          "processedData": {
+            "name": "Fahad Hamid",
+            "email": "fhamid@salesforce.com",
+            "company": "Automated Executive Lead",
+            "message": "Position: Global Client Director | Source: Hunter.io"
+          }
+        }
+      },
+      {
+        "json": {
+          "value": "tom.crowley@salesforce.com",
+          "type": "personal",
+          "confidence": 99,
+          "sources": [
+            {
+              "domain": "linkedin.com",
+              "uri": "https://www.google.com/search?q=site:linkedin.com%20tom%20crowley%20salesforce",
+              "extracted_on": "2025-10-06",
+              "last_seen_on": "2025-10-12",
+              "still_on_page": true
+            }
+          ],
+          "first_name": "Tom",
+          "last_name": "Crowley",
+          "position": "Enterprise Account Director",
+          "position_raw": "Strategic Enterprise Account Director - Water, Waste and Recycling",
+          "seniority": "executive",
+          "department": "sales",
+          "linkedin": "https://www.linkedin.com/in/tom-crowley-b04a66111",
+          "twitter": null,
+          "phone_number": null,
+          "verification": {
+            "date": "2025-10-06",
+            "status": "valid"
+          },
+          "processedData": {
+            "name": "Tom Crowley",
+            "email": "tom.crowley@salesforce.com",
+            "company": "Automated Executive Lead",
+            "message": "Position: Enterprise Account Director | Source: Hunter.io"
+          }
+        }
+      },
+      {
+        "json": {
+          "value": "jbonnet@salesforce.com",
+          "type": "personal",
+          "confidence": 99,
+          "sources": [
+            {
+              "domain": "linkedin.com",
+              "uri": "https://www.google.com/search?q=site:linkedin.com%20jean-pascal%20bonnet%20salesforce",
+              "extracted_on": "2025-10-01",
+              "last_seen_on": "2025-09-27",
+              "still_on_page": true
+            }
+          ],
+          "first_name": "Jean-Pascal",
+          "last_name": "Bonnet",
+          "position": "Director of Professional Services",
+          "position_raw": "Professional Services Account Partner Director - Energy & Utilities - Public Sector",
+          "seniority": "executive",
+          "department": "management",
+          "linkedin": "https://www.linkedin.com/in/jeanpascalbonnet",
+          "twitter": null,
+          "phone_number": null,
+          "verification": {
+            "date": "2025-10-01",
+            "status": "valid"
+          },
+          "processedData": {
+            "name": "Jean-Pascal Bonnet",
+            "email": "jbonnet@salesforce.com",
+            "company": "Automated Executive Lead",
+            "message": "Position: Director of Professional Services | Source: Hunter.io"
+          }
+        }
+      },
+      {
+        "json": {
+          "value": "chris.featherstone@salesforce.com",
+          "type": "personal",
+          "confidence": 99,
+          "sources": [
+            {
+              "domain": "linkedin.com",
+              "uri": "https://www.google.com/search?q=site:linkedin.com%20chris%20featherstone%20salesforce",
+              "extracted_on": "2025-08-22",
+              "last_seen_on": "2025-10-14",
+              "still_on_page": true
+            }
+          ],
+          "first_name": "Chris",
+          "last_name": "Featherstone",
+          "position": "Senior Director of AI/Data Product Management",
+          "position_raw": "Sr. Director of AI/Data Product/Program Management - Private Equity Practice",
+          "seniority": "executive",
+          "department": "management",
+          "linkedin": "https://www.linkedin.com/in/chrisfeatherstone",
+          "twitter": null,
+          "phone_number": null,
+          "verification": {
+            "date": "2025-10-22",
+            "status": "valid"
+          },
+          "processedData": {
+            "name": "Chris Featherstone",
+            "email": "chris.featherstone@salesforce.com",
+            "company": "Automated Executive Lead",
+            "message": "Position: Senior Director of AI/Data Product Management | Source: Hunter.io"
+          }
+        }
+      },
+      {
+        "json": {
+          "value": "alexandra.jaeggi@salesforce.com",
+          "type": "personal",
+          "confidence": 99,
+          "sources": [
+            {
+              "domain": "linkedin.com",
+              "uri": "https://www.google.com/search?q=site:linkedin.com%20alexandra%20j%C3%A4ggi%20salesforce",
+              "extracted_on": "2025-08-22",
+              "last_seen_on": "2025-10-07",
+              "still_on_page": true
+            }
+          ],
+          "first_name": "Alexandra",
+          "last_name": "Jäggi",
+          "position": "Director of Product Marketing",
+          "position_raw": "Director of Product Marketing",
+          "seniority": "executive",
+          "department": "marketing",
+          "linkedin": "https://www.linkedin.com/in/alexandrajaeggi",
+          "twitter": null,
+          "phone_number": null,
+          "verification": {
+            "date": "2025-10-22",
+            "status": "valid"
+          },
+          "processedData": {
+            "name": "Alexandra Jäggi",
+            "email": "alexandra.jaeggi@salesforce.com",
+            "company": "Automated Executive Lead",
+            "message": "Position: Director of Product Marketing | Source: Hunter.io"
+          }
+        }
+      },
+      {
+        "json": {
+          "value": "kpalati@salesforce.com",
+          "type": "personal",
+          "confidence": 99,
+          "sources": [
+            {
+              "domain": "linkedin.com",
+              "uri": "https://www.google.com/search?q=site:linkedin.com%20krishna%20palati%20salesforce",
+              "extracted_on": "2025-08-22",
+              "last_seen_on": "2025-10-07",
+              "still_on_page": true
+            }
+          ],
+          "first_name": "Krishna",
+          "last_name": "Palati",
+          "position": "Director",
+          "position_raw": "Director",
+          "seniority": "executive",
+          "department": "management",
+          "linkedin": "https://www.linkedin.com/in/krishnapalati",
+          "twitter": null,
+          "phone_number": null,
+          "verification": {
+            "date": "2025-10-22",
+            "status": "valid"
+          },
+          "processedData": {
+            "name": "Krishna Palati",
+            "email": "kpalati@salesforce.com",
+            "company": "Automated Executive Lead",
+            "message": "Position: Director | Source: Hunter.io"
+          }
+        }
+      },
+      {
+        "json": {
+          "value": "courtney.wood@salesforce.com",
+          "type": "personal",
+          "confidence": 99,
+          "sources": [
+            {
+              "domain": "linkedin.com",
+              "uri": "https://www.google.com/search?q=site:linkedin.com%20courtney%20wood%20salesforce",
+              "extracted_on": "2025-08-22",
+              "last_seen_on": "2025-09-30",
+              "still_on_page": true
+            }
+          ],
+          "first_name": "Courtney",
+          "last_name": "Wood",
+          "position": "Director of Strategy",
+          "position_raw": "Director, Planning & Strategy",
+          "seniority": "executive",
+          "department": "management",
+          "linkedin": "https://www.linkedin.com/in/courtneythorne",
+          "twitter": null,
+          "phone_number": null,
+          "verification": {
+            "date": "2025-10-21",
+            "status": "valid"
+          },
+          "processedData": {
+            "name": "Courtney Wood",
+            "email": "courtney.wood@salesforce.com",
+            "company": "Automated Executive Lead",
+            "message": "Position: Director of Strategy | Source: Hunter.io"
+          }
+        }
+      },
+      {
+        "json": {
+          "value": "achisholm@hubspot.com",
+          "type": "personal",
+          "confidence": 94,
+          "sources": [
+            {
+              "domain": "linkedin.com",
+              "uri": "https://www.google.com/search?q=site:linkedin.com%20andrew%20chisholm%20hubspot",
+              "extracted_on": "2025-08-15",
+              "last_seen_on": "2025-10-11",
+              "still_on_page": true
+            }
+          ],
+          "first_name": "Andrew",
+          "last_name": "Chisholm",
+          "position": "HRIS Director",
+          "position_raw": "Director HRIS",
+          "seniority": "executive",
+          "department": "management",
+          "linkedin": "https://www.linkedin.com/in/andrew-chisholm-62b2b413",
+          "twitter": null,
+          "phone_number": null,
+          "verification": {
+            "date": "2025-10-29",
+            "status": "accept_all"
+          },
+          "processedData": {
+            "name": "Andrew Chisholm",
+            "email": "achisholm@hubspot.com",
+            "company": "Automated Executive Lead",
+            "message": "Position: HRIS Director | Source: Hunter.io"
+          }
+        }
+      },
+      {
+        "json": {
+          "value": "payyagari@hubspot.com",
+          "type": "personal",
+          "confidence": 94,
+          "sources": [
+            {
+              "domain": "linkedin.com",
+              "uri": "https://www.google.com/search?q=site:linkedin.com%20priya%20ayyagari%20hubspot",
+              "extracted_on": "2025-08-11",
+              "last_seen_on": "2025-09-28",
+              "still_on_page": true
+            }
+          ],
+          "first_name": "Priya",
+          "last_name": "Ayyagari",
+          "position": "Deputy Chief Information Security Officer",
+          "position_raw": "Deputy CISO",
+          "seniority": "executive",
+          "department": "it",
+          "linkedin": "https://www.linkedin.com/in/priya-ayyagari",
+          "twitter": null,
+          "phone_number": null,
+          "verification": {
+            "date": "2025-10-29",
+            "status": "accept_all"
+          },
+          "processedData": {
+            "name": "Priya Ayyagari",
+            "email": "payyagari@hubspot.com",
+            "company": "Automated Executive Lead",
+            "message": "Position: Deputy Chief Information Security Officer | Source: Hunter.io"
+          }
+        }
+      },
+      {
+        "json": {
+          "value": "marc.paget@techstars.com",
+          "type": "personal",
+          "confidence": 94,
+          "sources": [
+            {
+              "domain": "linkedin.com",
+              "uri": "https://www.google.com/search?q=site:linkedin.com%20marc%20paget%20techstars",
+              "extracted_on": "2025-01-08",
+              "last_seen_on": "2025-10-03",
+              "still_on_page": true
+            }
+          ],
+          "first_name": "Marc",
+          "last_name": "Paget",
+          "position": "Director of Financial Planning and Analysis",
+          "position_raw": "Head of FP&A",
+          "seniority": "executive",
+          "department": "finance",
+          "linkedin": "https://www.linkedin.com/in/marcpaget",
+          "twitter": null,
+          "phone_number": null,
+          "verification": {
+            "date": "2025-10-25",
+            "status": "valid"
+          },
+          "processedData": {
+            "name": "Marc Paget",
+            "email": "marc.paget@techstars.com",
+            "company": "Automated Executive Lead",
+            "message": "Position: Director of Financial Planning and Analysis | Source: Hunter.io"
+          }
+        }
+      },
+      {
+        "json": {
+          "value": "jonathan.geehan@techstars.com",
+          "type": "personal",
+          "confidence": 94,
+          "sources": [
+            {
+              "domain": "linkedin.com",
+              "uri": "https://www.google.com/search?q=site:linkedin.com%20jonathan%20geehan%20techstars",
+              "extracted_on": "2025-01-08",
+              "last_seen_on": "2025-01-08",
+              "still_on_page": true
+            }
+          ],
+          "first_name": "Jonathan",
+          "last_name": "Geehan",
+          "position": "Chief Financial Officer",
+          "position_raw": "Chief Financial Officer",
+          "seniority": "executive",
+          "department": "finance",
+          "linkedin": "https://www.linkedin.com/in/jonathan-geehan-mba-2788437",
+          "twitter": null,
+          "phone_number": null,
+          "verification": {
+            "date": "2025-10-25",
+            "status": "valid"
+          },
+          "processedData": {
+            "name": "Jonathan Geehan",
+            "email": "jonathan.geehan@techstars.com",
+            "company": "Automated Executive Lead",
+            "message": "Position: Chief Financial Officer | Source: Hunter.io"
+          }
+        }
+      },
+      {
+        "json": {
+          "value": "david.cano@techstars.com",
+          "type": "personal",
+          "confidence": 94,
+          "sources": [
+            {
+              "domain": "linkedin.com",
+              "uri": "https://www.google.com/search?q=site:linkedin.com%20david%20cano%20techstars",
+              "extracted_on": "2025-01-08",
+              "last_seen_on": "2025-10-09",
+              "still_on_page": true
+            }
+          ],
+          "first_name": "David",
+          "last_name": "Cano",
+          "position": "IT Security Director",
+          "position_raw": "Director IT and Security",
+          "seniority": "executive",
+          "department": "it",
+          "linkedin": "https://www.linkedin.com/in/davidcano1",
+          "twitter": null,
+          "phone_number": null,
+          "verification": {
+            "date": "2025-10-05",
+            "status": "valid"
+          },
+          "processedData": {
+            "name": "David Cano",
+            "email": "david.cano@techstars.com",
+            "company": "Automated Executive Lead",
+            "message": "Position: IT Security Director | Source: Hunter.io"
+          }
+        }
+      },
+      {
+        "json": {
+          "value": "dave.cass@techstars.com",
+          "type": "personal",
+          "confidence": 94,
+          "sources": [
+            {
+              "domain": "linkedin.com",
+              "uri": "https://www.google.com/search?q=site:linkedin.com%20dave%20cass%20techstars",
+              "extracted_on": "2025-01-08",
+              "last_seen_on": "2025-09-29",
+              "still_on_page": true
+            }
+          ],
+          "first_name": "Dave",
+          "last_name": "Cass",
+          "position": "Managing Director",
+          "position_raw": "Managing Director",
+          "seniority": "executive",
+          "department": "executive",
+          "linkedin": "https://www.linkedin.com/in/davidmcass",
+          "twitter": null,
+          "phone_number": null,
+          "verification": {
+            "date": "2025-10-25",
+            "status": "valid"
+          },
+          "processedData": {
+            "name": "Dave Cass",
+            "email": "dave.cass@techstars.com",
+            "company": "Automated Executive Lead",
+            "message": "Position: Managing Director | Source: Hunter.io"
+          }
+        }
+      },
+      {
+        "json": {
+          "value": "guy.israeli@techstars.com",
+          "type": "personal",
+          "confidence": 94,
+          "sources": [
+            {
+              "domain": "linkedin.com",
+              "uri": "https://www.google.com/search?q=site:linkedin.com%20guy%20israeli%20techstars",
+              "extracted_on": "2025-01-08",
+              "last_seen_on": "2025-10-11",
+              "still_on_page": true
+            }
+          ],
+          "first_name": "Guy",
+          "last_name": "Israeli",
+          "position": "Managing Director",
+          "position_raw": "Managing Director, Techstars Tel Aviv",
+          "seniority": "executive",
+          "department": "executive",
+          "linkedin": "https://www.linkedin.com/in/guyisraeli",
+          "twitter": null,
+          "phone_number": null,
+          "verification": {
+            "date": "2025-10-25",
+            "status": "valid"
+          },
+          "processedData": {
+            "name": "Guy Israeli",
+            "email": "guy.israeli@techstars.com",
+            "company": "Automated Executive Lead",
+            "message": "Position: Managing Director | Source: Hunter.io"
+          }
+        }
+      },
+      {
+        "json": {
+          "value": "joe.sanchez@techstars.com",
+          "type": "personal",
+          "confidence": 94,
+          "sources": [
+            {
+              "domain": "linkedin.com",
+              "uri": "https://www.google.com/search?q=site:linkedin.com%20joe%20sanchez%20techstars",
+              "extracted_on": "2025-01-08",
+              "last_seen_on": "2025-10-04",
+              "still_on_page": true
+            }
+          ],
+          "first_name": "Joe",
+          "last_name": "Sanchez",
+          "position": "Director of Partnerships",
+          "position_raw": "Director of Partnerships - North America",
+          "seniority": "executive",
+          "department": "management",
+          "linkedin": "https://www.linkedin.com/in/joesanchez305",
+          "twitter": null,
+          "phone_number": null,
+          "verification": {
+            "date": "2025-10-25",
+            "status": "valid"
+          },
+          "processedData": {
+            "name": "Joe Sanchez",
+            "email": "joe.sanchez@techstars.com",
+            "company": "Automated Executive Lead",
+            "message": "Position: Director of Partnerships | Source: Hunter.io"
+          }
+        }
+      },
+      {
+        "json": {
+          "value": "angela.madura@techstars.com",
+          "type": "personal",
+          "confidence": 94,
+          "sources": [
+            {
+              "domain": "linkedin.com",
+              "uri": "https://www.google.com/search?q=site:linkedin.com%20angela%20madura%20techstars",
+              "extracted_on": "2025-01-03",
+              "last_seen_on": "2025-10-07",
+              "still_on_page": true
+            }
+          ],
+          "first_name": "Angela",
+          "last_name": "Madura",
+          "position": "Director of Environmental, Social, and Governance",
+          "position_raw": "Director, ESG",
+          "seniority": "executive",
+          "department": "health",
+          "linkedin": "https://www.linkedin.com/in/angela-madura-59054a8",
+          "twitter": null,
+          "phone_number": null,
+          "verification": {
+            "date": "2025-10-05",
+            "status": "valid"
+          },
+          "processedData": {
+            "name": "Angela Madura",
+            "email": "angela.madura@techstars.com",
+            "company": "Automated Executive Lead",
+            "message": "Position: Director of Environmental, Social, and Governance | Source: Hunter.io"
+          }
+        }
+      },
+      {
+        "json": {
+          "value": "adam.phillips@techstars.com",
+          "type": "personal",
+          "confidence": 94,
+          "sources": [
+            {
+              "domain": "linkedin.com",
+              "uri": "https://www.google.com/search?q=site:linkedin.com%20adam%20phillips%20techstars",
+              "extracted_on": "2025-01-08",
+              "last_seen_on": "2025-01-08",
+              "still_on_page": true
+            },
+            {
+              "domain": "techstars.com",
+              "uri": "https://techstars.com/newsroom/techstars-equitech-accelerator-announces-new-managing-director",
+              "extracted_on": "2024-10-17",
+              "last_seen_on": "2024-10-17",
+              "still_on_page": true
+            },
+            {
+              "domain": "techstars.com",
+              "uri": "https://techstars.com/newsroom/techstars-johns-hopkins-university-carefirst-bluecross-blueshield-baltimore",
+              "extracted_on": "2024-10-16",
+              "last_seen_on": "2024-10-16",
+              "still_on_page": true
+            }
+          ],
+          "first_name": "Adam",
+          "last_name": "Phillips",
+          "position": "Managing Director",
+          "position_raw": "Managing Director",
+          "seniority": "executive",
+          "department": "executive",
+          "linkedin": "https://www.linkedin.com/in/adamhughphillips",
+          "twitter": null,
+          "phone_number": null,
+          "verification": {
+            "date": "2025-10-25",
+            "status": "valid"
+          },
+          "processedData": {
+            "name": "Adam Phillips",
+            "email": "adam.phillips@techstars.com",
+            "company": "Automated Executive Lead",
+            "message": "Position: Managing Director | Source: Hunter.io"
+          }
+        }
+      },
+      {
+        "json": {
+          "value": "sarah.bain@techstars.com",
+          "type": "personal",
+          "confidence": 94,
+          "sources": [
+            {
+              "domain": "linkedin.com",
+              "uri": "https://www.google.com/search?q=site:linkedin.com%20sarah%20bain%20techstars",
+              "extracted_on": "2025-01-08",
+              "last_seen_on": "2025-10-01",
+              "still_on_page": true
+            },
+            {
+              "domain": "techstars.com",
+              "uri": "https://techstars.com/accelerators/future-of-food",
+              "extracted_on": "2024-10-16",
+              "last_seen_on": "2024-10-16",
+              "still_on_page": true
+            }
+          ],
+          "first_name": "Sarah",
+          "last_name": "Bain",
+          "position": "Managing Director",
+          "position_raw": "Managing Director",
+          "seniority": "executive",
+          "department": "executive",
+          "linkedin": "https://www.linkedin.com/in/bainsarah",
+          "twitter": null,
+          "phone_number": null,
+          "verification": {
+            "date": "2025-10-25",
+            "status": "valid"
+          },
+          "processedData": {
+            "name": "Sarah Bain",
+            "email": "sarah.bain@techstars.com",
+            "company": "Automated Executive Lead",
+            "message": "Position: Managing Director | Source: Hunter.io"
+          }
+        }
+      },
+      {
+        "json": {
+          "value": "tim.grace@techstars.com",
+          "type": "personal",
+          "confidence": 94,
+          "sources": [
+            {
+              "domain": "linkedin.com",
+              "uri": "https://www.google.com/search?q=site:linkedin.com%20tim%20grace%20techstars",
+              "extracted_on": "2025-01-08",
+              "last_seen_on": "2025-10-12",
+              "still_on_page": true
+            },
+            {
+              "domain": "techstars.com",
+              "uri": "https://techstars.com/accelerators/ohio-state-university-accelerator",
+              "extracted_on": "2024-10-16",
+              "last_seen_on": "2024-10-16",
+              "still_on_page": true
+            },
+            {
+              "domain": "software.osu.edu",
+              "uri": "https://software.osu.edu/about/our-team",
+              "extracted_on": "2025-04-07",
+              "last_seen_on": "2025-07-18",
+              "still_on_page": false
+            },
+            {
+              "domain": "software.osu.edu",
+              "uri": "https://software.osu.edu/user-profile/26",
+              "extracted_on": "2025-04-07",
+              "last_seen_on": "2025-07-16",
+              "still_on_page": false
+            }
+          ],
+          "first_name": "Tim",
+          "last_name": "Grace",
+          "position": "Managing Director",
+          "position_raw": "Managing Director",
+          "seniority": "executive",
+          "department": "executive",
+          "linkedin": "https://www.linkedin.com/in/tmgrace",
+          "twitter": null,
+          "phone_number": null,
+          "verification": {
+            "date": "2025-10-25",
+            "status": "valid"
+          },
+          "processedData": {
+            "name": "Tim Grace",
+            "email": "tim.grace@techstars.com",
+            "company": "Automated Executive Lead",
+            "message": "Position: Managing Director | Source: Hunter.io"
+          }
+        }
+      },
+      {
+        "json": {
+          "value": "jacky.shi@lever.co",
+          "type": "personal",
+          "confidence": 94,
+          "sources": [
+            {
+              "domain": "linkedin.com",
+              "uri": "https://www.google.com/search?q=site:linkedin.com%20jacky%20shi%20lever",
+              "extracted_on": "2025-01-11",
+              "last_seen_on": "2025-10-07",
+              "still_on_page": true
+            }
+          ],
+          "first_name": "Jacky",
+          "last_name": "Shi",
+          "position": "Account Executive",
+          "position_raw": "Account Executive - Growth Market",
+          "seniority": "executive",
+          "department": "sales",
+          "linkedin": "https://www.linkedin.com/in/jacky-shi",
+          "twitter": null,
+          "phone_number": null,
+          "verification": {
+            "date": "2025-10-23",
+            "status": "valid"
+          },
+          "processedData": {
+            "name": "Jacky Shi",
+            "email": "jacky.shi@lever.co",
+            "company": "Automated Executive Lead",
+            "message": "Position: Account Executive | Source: Hunter.io"
+          }
+        }
+      },
+      {
+        "json": {
+          "value": "sara.schleifman@lever.co",
+          "type": "personal",
+          "confidence": 84,
+          "sources": [
+            {
+              "domain": "linkedin.com",
+              "uri": "https://www.google.com/search?q=site:linkedin.com%20sara%20schleifman%20lever",
+              "extracted_on": "2025-01-10",
+              "last_seen_on": "2025-09-29",
+              "still_on_page": true
+            }
+          ],
+          "first_name": "Sara",
+          "last_name": "Schleifman",
+          "position": "Account Executive",
+          "position_raw": "Account Executive",
+          "seniority": "executive",
+          "department": "sales",
+          "linkedin": "https://www.linkedin.com/in/sara-schleifman-3a12bb12b",
+          "twitter": null,
+          "phone_number": null,
+          "verification": {
+            "date": "2025-10-06",
+            "status": "valid"
+          },
+          "processedData": {
+            "name": "Sara Schleifman",
+            "email": "sara.schleifman@lever.co",
+            "company": "Automated Executive Lead",
+            "message": "Position: Account Executive | Source: Hunter.io"
+          }
+        }
+      }
+    ]
+  },
+  "connections": {
+    "When clicking ‘Execute workflow’": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Google search",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Google search": {
+      "main": [
+        [
+          {
+            "node": "Extract Company & Domain",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Extract Company & Domain": {
+      "main": [
+        [
+          {
+            "node": "Split Out",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Split Out": {
+      "main": [
+        [
+          {
+            "node": "Clean & Validate Domains",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean & Validate Domains": {
+      "main": [
+        [
+          {
+            "node": "If",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If": {
+      "main": [
+        [
+          {
+            "node": "Debug Hunter Input",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Debug Hunter Input": {
+      "main": [
+        [
+          {
+            "node": "Hunter",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Hunter": {
+      "main": [
+        [
+          {
+            "node": "If1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "If1": {
+      "main": [
+        [
+          {
+            "node": "Process Email Data",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Process Email Data": {
+      "main": [
+        [
+          {
+            "node": "HTTP Request",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "versionId": "14fd9588-57f4-428c-97a6-eb33a51cbe0d",
+  "meta": {
+    "templateCredsSetupCompleted": true,
+    "instanceId": "d78625eba4a7f7ada4b8cd61710edd7d23f9afa8b0ce485ddb361c98353d9984"
+  },
+  "id": "o4I756tR6RUFkTKQ",
+  "tags": []
+}
