@@ -1,7 +1,11 @@
 # Lead Generation & Qualification System
 
 This folder contains two n8n workflows that work together to automate lead generation and qualification using AI.
+## 🎥 Demo
 
+<video src="## 🎥 Demo
+
+<video src="workflow-demo.mp4" controls width="700"></video>" controls width="700"></video>
 ## Workflows
 
 ### 1. Lead Generation Pipeline
